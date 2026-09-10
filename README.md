@@ -28,9 +28,9 @@ desktop app.
 Tracking [INSAT-4A](https://www.isro.gov.in/INSAT_4A.html?timeline=timeline)
 in geostationary orbit, running at 100× speed:
 
-<video src="docs/img_vid/UpThere.mp4" autoplay loop muted playsinline controls width="100%">
-  <a href="docs/img_vid/UpThere.mp4">Watch the demo clip</a>
-</video>
+![UpThere tracking INSAT-4A at 100x speed](docs/img_vid/UpThere.gif)
+
+[Full-quality clip (MP4)](docs/img_vid/UpThere.mp4)
 
 ## Quick start (web)
 
