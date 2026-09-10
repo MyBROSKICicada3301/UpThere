@@ -26,7 +26,7 @@ desktop app.
 ## Demo
 
 Tracking [INSAT-4A](https://www.isro.gov.in/INSAT_4A.html?timeline=timeline)
-in geostationary orbit, running at 100× speed:
+in geostationary orbit, running at 1000× speed:
 
 ![UpThere tracking INSAT-4A at 100x speed](docs/img_vid/UpThere.gif)
 
