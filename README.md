@@ -1,5 +1,7 @@
 # UpThere
 
+![UpThere](docs/img_vid/Application.png)
+
 **Real-time 3D satellite & debris tracker.** Every tracked object in Earth
 orbit (~36,000 satellites, rocket bodies, and debris fragments) rendered on
 an interactive globe with positions propagated live in your browser or as a
@@ -20,6 +22,15 @@ desktop app.
   and altitude band.
 - **Object details.** Click any dot or search-select: live latitude/
   longitude/altitude/speed, orbital elements, orbit line, and ground track.
+
+## Demo
+
+Tracking [INSAT-4A](https://www.isro.gov.in/INSAT_4A.html?timeline=timeline)
+in geostationary orbit, running at 100× speed:
+
+<video src="docs/img_vid/UpThere.mp4" autoplay loop muted playsinline controls width="100%">
+  <a href="docs/img_vid/UpThere.mp4">Watch the demo clip</a>
+</video>
 
 ## Quick start (web)
 
