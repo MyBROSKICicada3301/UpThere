@@ -22,6 +22,15 @@ desktop app.
   and altitude band.
 - **Object details.** Click any dot or search-select: live latitude/
   longitude/altitude/speed, orbital elements, orbit line, and ground track.
+- **Two charts.** Keep the photographic globe, or switch to **Mythos**: a
+  pen-and-ink world chart — wobbling coastlines, engraved sea shading, hill
+  hachures, compass roses, galleons and sea serpents — drawn at runtime from
+  the same textures, with the whole interface following it onto parchment.
+- **Winds & seas.** Two optional overlays, in either chart style. *Winds*
+  draws the trade, westerly and polar belts under the eight Anemoi, each
+  cherub's breath aimed along the wind beneath it. *Seas* draws the five
+  great gyres, their boundary currents and the Antarctic Circumpolar, with
+  a turning whirlpool at every gyre centre.
 
 ## Demo
 
@@ -75,6 +84,10 @@ The short version:
 4. The world frame is ECI: satellites need no transform, and the Earth mesh
    itself rotates by GMST, which is what makes the sidereal rotation and
    ground tracks exact.
+5. The Mythos chart ships no extra assets. The specular texture doubles as a
+   clean land/water mask; a signed distance field over it yields the
+   coastline, the engraved offshore banding and the siting of every hill
+   mark, and the ships and monsters are canvas paths.
 
 The long version, including the threading model, coordinate conventions and
 scheduling policy: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

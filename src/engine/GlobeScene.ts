@@ -12,25 +12,75 @@
  * so between worker refreshes the GPU animates every object for free.
  * Filtered-out points are clipped in the vertex shader via the `aVis`
  * attribute.
+ *
+ * The globe has two skins, chosen by `setChartStyle`. **Modern** is the
+ * photographic day/night pair. **Mythos** swaps in a pen-and-ink chart
+ * generated at runtime from the same textures (`mythos/parchment.ts`) and
+ * warms the rim light and stars to match. Both share one `ShaderMaterial`
+ * branching on a `uMode` uniform, so switching never recompiles a program
+ * or re-uploads the satellite buffers.
+ *
+ * Over either skin sits at most one overlay — the winds or the sea
+ * currents (`mythos/overlays.ts`) — parented to the rotating Earth group.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EpochUTC, Sun } from 'ootk';
 import type { SliceUpdate, PropagationEngine } from './PropagationEngine';
+import { antiqueChart } from './mythos/parchment';
+import { Overlay, type ChartStyle } from './mythos/overlays';
 
 const EARTH_R = 6371;
 
+export type OverlayKind = 'none' | 'winds' | 'currents';
+
+/** Per-style colours for everything outside the Earth material. */
+const SKIN = {
+  modern: {
+    rim: new THREE.Color(0x4080ff),
+    rimGain: 0.8,
+    stars: 0x888899,
+    orbit: 0xffffff,
+    track: 0xffe082,
+    marker: 0xffffff,
+  },
+  mythos: {
+    rim: new THREE.Color(0xd2a04e),
+    rimGain: 0.95,
+    stars: 0xb8a37a,
+    orbit: 0x8c3a1a,
+    track: 0x16545c,
+    marker: 0x6b3f1d,
+  },
+} as const;
+
+// `uInk` handles the mythos style's one real contrast problem: a warm dot
+// that reads against black space vanishes against parchment. Each vertex
+// works out whether it lands inside the Earth's disc on screen — the
+// perpendicular distance from the globe's centre to the camera ray — and
+// over the chart turns to ink, slightly translucent so a full catalogue
+// does not bury the coastlines. Out in the void it keeps its bright form.
 const POINT_VERT = /* glsl */ `
   attribute vec3 velocity;
   attribute float aT0;
   attribute float aVis;
   attribute vec3 aColor;
   uniform float uSimT;
+  uniform float uInk;
+  uniform float uEarthR;
   varying vec3 vColor;
+  varying float vAlpha;
   void main() {
-    vColor = aColor;
     vec3 p = position + velocity * (uSimT - aT0);
+
+    vec3 ray = p - cameraPosition;
+    float t = -dot(cameraPosition, ray) / max(dot(ray, ray), 1.0);
+    float perp = length(cameraPosition + ray * t);
+    float over = uInk * (1.0 - smoothstep(uEarthR * 0.96, uEarthR * 1.02, perp));
+    vColor = mix(aColor, aColor * 0.34, over);
+    vAlpha = mix(1.0, 0.7, over);
+
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = clamp(110000.0 / -mv.z, 1.6, 5.5);
@@ -40,10 +90,11 @@ const POINT_VERT = /* glsl */ `
 
 const POINT_FRAG = /* glsl */ `
   varying vec3 vColor;
+  varying float vAlpha;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     if (dot(c, c) > 0.25) discard;
-    gl_FragColor = vec4(vColor, 1.0);
+    gl_FragColor = vec4(vColor, vAlpha);
   }
 `;
 
@@ -60,18 +111,32 @@ const EARTH_VERT = /* glsl */ `
 // Textures are decoded to linear (colorSpace = SRGB); a ShaderMaterial
 // writes to the sRGB drawing buffer directly, so the output is encoded
 // back manually.
+//
+// The mythos branch keeps a terminator — knowing where the sun is still
+// matters in an orbit tracker — but only as the difference between a sheet
+// read by daylight and one read by candle, never dark enough to lose the
+// ink.
 const EARTH_FRAG = /* glsl */ `
   uniform sampler2D uDay;
   uniform sampler2D uNight;
+  uniform sampler2D uChart;
   uniform vec3 uSunDir;
+  uniform float uMode;
   varying vec2 vUv;
   varying vec3 vNormalW;
   void main() {
     float d = dot(normalize(vNormalW), uSunDir);
-    float dayAmt = smoothstep(-0.05, 0.18, d);
-    vec3 day = texture2D(uDay, vUv).rgb;
-    vec3 night = texture2D(uNight, vUv).rgb;
-    vec3 col = day * (0.06 + 1.0 * dayAmt) + night * (1.0 - dayAmt) * 1.25;
+    vec3 col;
+    if (uMode < 0.5) {
+      float dayAmt = smoothstep(-0.05, 0.18, d);
+      vec3 day = texture2D(uDay, vUv).rgb;
+      vec3 night = texture2D(uNight, vUv).rgb;
+      col = day * (0.06 + 1.0 * dayAmt) + night * (1.0 - dayAmt) * 1.25;
+    } else {
+      float dayAmt = smoothstep(-0.32, 0.4, d);
+      vec3 sheet = texture2D(uChart, vUv).rgb;
+      col = sheet * mix(vec3(0.5, 0.47, 0.52), vec3(1.14, 1.08, 0.96), dayAmt);
+    }
     gl_FragColor = vec4(pow(col, vec3(1.0 / 2.2)), 1.0);
   }
 `;
@@ -88,12 +153,14 @@ const ATMO_VERT = /* glsl */ `
 `;
 
 const ATMO_FRAG = /* glsl */ `
+  uniform vec3 uRim;
+  uniform float uGain;
   varying vec3 vN;
   varying vec3 vP;
   void main() {
     vec3 toCam = normalize(cameraPosition - vP);
     float rim = pow(1.0 - abs(dot(vN, toCam)), 2.5);
-    gl_FragColor = vec4(0.25, 0.5, 1.0, 1.0) * rim * 0.8;
+    gl_FragColor = vec4(uRim, 1.0) * rim * uGain;
   }
 `;
 
@@ -106,14 +173,25 @@ export class GlobeScene {
   private earthGroup = new THREE.Group();
   private points: THREE.Points | null = null;
   private pointGeo: THREE.BufferGeometry | null = null;
-  private uniforms = { uSimT: { value: 0 } };
+  private uniforms = { uSimT: { value: 0 }, uInk: { value: 0 }, uEarthR: { value: EARTH_R } };
   private earthUniforms: Record<string, THREE.IUniform>;
+  private atmoUniforms: Record<string, THREE.IUniform>;
+  private stars: THREE.Points;
   private orbitLine: THREE.Line | null = null;
   private groundTrackLine: THREE.Line | null = null;
   private selectedSprite: THREE.Sprite;
   private lastSunUpdateMs = -Infinity;
   private engine: PropagationEngine | null = null;
   private count = 0;
+
+  private style: ChartStyle = 'modern';
+  private overlayKind: OverlayKind = 'none';
+  /** Built on demand and kept, keyed `${kind}:${style}` — the palettes differ. */
+  private overlays = new Map<string, Overlay>();
+  private chartTex: THREE.Texture | null = null;
+  private chartLoading = false;
+  private baseUrl: string;
+  private lastRealMs = performance.now();
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -131,6 +209,7 @@ export class GlobeScene {
 
     const loader = new THREE.TextureLoader();
     const base = import.meta.env.BASE_URL;
+    this.baseUrl = base;
     const dayTex = loader.load(`${base}textures/earth_atmos_2048.jpg`);
     const nightTex = loader.load(`${base}textures/earth_lights_2048.png`);
     dayTex.colorSpace = THREE.SRGBColorSpace;
@@ -138,7 +217,11 @@ export class GlobeScene {
     this.earthUniforms = {
       uDay: { value: dayTex },
       uNight: { value: nightTex },
+      // Bare parchment until the chart finishes drawing; the sampler must
+      // never be null or the driver is free to do anything it likes.
+      uChart: { value: flatTexture(0xe2c99c) },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+      uMode: { value: 0 },
     };
 
     // rotateX(90°) moves the sphere's poles from +Y to +Z; with three.js's
@@ -157,9 +240,14 @@ export class GlobeScene {
     this.earthGroup.add(earth);
     this.scene.add(this.earthGroup);
 
+    this.atmoUniforms = {
+      uRim: { value: SKIN.modern.rim.clone() },
+      uGain: { value: SKIN.modern.rimGain },
+    };
     const atmo = new THREE.Mesh(
       new THREE.SphereGeometry(EARTH_R * 1.035, 64, 32),
       new THREE.ShaderMaterial({
+        uniforms: this.atmoUniforms,
         side: THREE.BackSide,
         transparent: true,
         depthWrite: false,
@@ -168,6 +256,10 @@ export class GlobeScene {
         fragmentShader: ATMO_FRAG,
       }),
     );
+    // The catalogue points are transparent too (they thin out over the
+    // chart); keep the rim glow additive on top of them, as it was when
+    // they were opaque.
+    atmo.renderOrder = 1;
     this.scene.add(atmo);
 
     const starGeo = new THREE.BufferGeometry();
@@ -178,12 +270,11 @@ export class GlobeScene {
       starPos.set([v.x, v.y, v.z], i * 3);
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    this.scene.add(
-      new THREE.Points(
-        starGeo,
-        new THREE.PointsMaterial({ color: 0x888899, size: 1.6, sizeAttenuation: false }),
-      ),
+    this.stars = new THREE.Points(
+      starGeo,
+      new THREE.PointsMaterial({ color: SKIN.modern.stars, size: 1.6, sizeAttenuation: false }),
     );
+    this.scene.add(this.stars);
 
     this.selectedSprite = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -201,6 +292,79 @@ export class GlobeScene {
 
   setEngine(engine: PropagationEngine): void {
     this.engine = engine;
+  }
+
+  /* ------------------------------------------------------- chart style -- */
+
+  /**
+   * Switches the globe between the photographic skin and the pen-and-ink
+   * chart. The chart sheet is drawn once, lazily, on the first request for
+   * it; until it arrives the globe shows bare parchment rather than
+   * blocking, and a style switched away from in the meantime is honoured.
+   */
+  setChartStyle(style: ChartStyle): void {
+    if (style === this.style) return;
+    this.style = style;
+    const skin = SKIN[style];
+
+    this.earthUniforms.uMode.value = style === 'mythos' ? 1 : 0;
+    this.uniforms.uInk.value = style === 'mythos' ? 1 : 0;
+    (this.atmoUniforms.uRim.value as THREE.Color).copy(skin.rim);
+    this.atmoUniforms.uGain.value = skin.rimGain;
+    (this.stars.material as THREE.PointsMaterial).color.setHex(skin.stars);
+    (this.selectedSprite.material as THREE.SpriteMaterial).color.setHex(skin.marker);
+
+    if (this.orbitLine) (this.orbitLine.material as THREE.LineBasicMaterial).color.setHex(skin.orbit);
+    if (this.groundTrackLine) {
+      (this.groundTrackLine.material as THREE.LineBasicMaterial).color.setHex(skin.track);
+    }
+
+    if (style === 'mythos' && !this.chartTex && !this.chartLoading) {
+      this.chartLoading = true;
+      antiqueChart(this.baseUrl)
+        .then((canvas) => {
+          const tex = new THREE.CanvasTexture(canvas);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+          tex.wrapS = THREE.RepeatWrapping;
+          this.chartTex = tex;
+          this.earthUniforms.uChart.value = tex;
+        })
+        .finally(() => {
+          this.chartLoading = false;
+        });
+    }
+
+    // The overlay palette follows the style, so re-select to pick up the
+    // matching variant.
+    const kind = this.overlayKind;
+    this.overlayKind = 'none';
+    this.setOverlay(kind);
+  }
+
+  /** Shows one of the two data overlays, or none. */
+  setOverlay(kind: OverlayKind): void {
+    if (kind === this.overlayKind) return;
+    for (const o of this.overlays.values()) o.group.visible = false;
+    this.overlayKind = kind;
+    if (kind === 'none') return;
+
+    const key = `${kind}:${this.style}`;
+    let overlay = this.overlays.get(key);
+    if (!overlay) {
+      overlay = new Overlay(kind, this.style);
+      this.overlays.set(key, overlay);
+      this.earthGroup.add(overlay.group);
+    }
+    overlay.group.visible = true;
+  }
+
+  /** Rewrites the per-object colour buffer after a palette change. */
+  setPointColors(colors: Float32Array): void {
+    if (!this.pointGeo) return;
+    const attr = this.pointGeo.getAttribute('aColor') as THREE.BufferAttribute;
+    (attr.array as Float32Array).set(colors);
+    attr.needsUpdate = true;
   }
 
   /** Allocates the GPU buffers for the whole catalog. Called once. */
@@ -223,6 +387,7 @@ export class GlobeScene {
       uniforms: this.uniforms,
       vertexShader: POINT_VERT,
       fragmentShader: POINT_FRAG,
+      transparent: true,
     });
     this.points = new THREE.Points(geo, mat);
     this.points.frustumCulled = false;
@@ -264,7 +429,11 @@ export class GlobeScene {
     geo.setAttribute('position', new THREE.BufferAttribute(eci, 3));
     this.orbitLine = new THREE.Line(
       geo,
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }),
+      new THREE.LineBasicMaterial({
+        color: SKIN[this.style].orbit,
+        transparent: true,
+        opacity: 0.55,
+      }),
     );
     this.orbitLine.frustumCulled = false;
     this.scene.add(this.orbitLine);
@@ -282,7 +451,11 @@ export class GlobeScene {
     geo.setAttribute('position', new THREE.BufferAttribute(ecef, 3));
     this.groundTrackLine = new THREE.Line(
       geo,
-      new THREE.LineBasicMaterial({ color: 0xffe082, transparent: true, opacity: 0.8 }),
+      new THREE.LineBasicMaterial({
+        color: SKIN[this.style].track,
+        transparent: true,
+        opacity: 0.8,
+      }),
     );
     this.groundTrackLine.frustumCulled = false;
     this.earthGroup.add(this.groundTrackLine);
@@ -312,6 +485,20 @@ export class GlobeScene {
 
     this.uniforms.uSimT.value = (simMs - refMs) / 1000;
     this.controls.update();
+
+    // Overlays animate on wall-clock time, not simulated time: a gyre that
+    // whipped round at 1000× would read as noise, and running time
+    // backwards should not suck the sea back up the Gulf Stream.
+    if (this.overlayKind !== 'none') {
+      const now = performance.now();
+      const dt = Math.min(0.1, (now - this.lastRealMs) / 1000);
+      this.lastRealMs = now;
+      this.earthGroup.updateMatrixWorld();
+      this.overlays.get(`${this.overlayKind}:${this.style}`)?.update(now / 1000, this.camera, dt);
+    } else {
+      this.lastRealMs = performance.now();
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -378,9 +565,22 @@ export class GlobeScene {
   }
 
   dispose(): void {
+    for (const o of this.overlays.values()) o.dispose();
+    this.overlays.clear();
+    this.chartTex?.dispose();
     this.renderer.dispose();
     this.controls.dispose();
   }
+}
+
+/** 1×1 stand-in so a sampler uniform is never bound to null. */
+function flatTexture(hex: number): THREE.DataTexture {
+  const c = new THREE.Color(hex);
+  const data = new Uint8Array([c.r * 255, c.g * 255, c.b * 255, 255]);
+  const tex = new THREE.DataTexture(data, 1, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
 }
 
 function makeRingTexture(): THREE.Texture {

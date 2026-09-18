@@ -21,7 +21,8 @@ import {
   type FilterState,
   type SatMeta,
 } from './data/catalog';
-import { GlobeScene } from './engine/GlobeScene';
+import { GlobeScene, type OverlayKind } from './engine/GlobeScene';
+import type { ChartStyle } from './engine/mythos/overlays';
 import { PropagationEngine } from './engine/PropagationEngine';
 import { SimClock } from './engine/SimClock';
 import { SelectedSat, type LiveState } from './engine/selection';
@@ -29,17 +30,43 @@ import { TimeControls } from './components/TimeControls';
 import { SearchBar } from './components/SearchBar';
 import { FilterPanel } from './components/FilterPanel';
 import { DetailPanel } from './components/DetailPanel';
+import { ChartPanel } from './components/ChartPanel';
 import { ApiKeySetup } from './components/ApiKeySetup';
 
-const TYPE_COLORS: Record<number, [number, number, number]> = {
-  1: [0.31, 0.86, 1.0],
-  2: [1.0, 0.72, 0.3],
-  3: [0.62, 0.62, 0.66],
-  0: [0.81, 0.58, 0.92],
+/**
+ * Object colours per chart style. The mythos set trades the cool screen
+ * palette for inks that hold up against parchment.
+ */
+const TYPE_COLORS: Record<ChartStyle, Record<number, [number, number, number]>> = {
+  modern: {
+    1: [0.31, 0.86, 1.0],
+    2: [1.0, 0.72, 0.3],
+    3: [0.62, 0.62, 0.66],
+    0: [0.81, 0.58, 0.92],
+  },
+  mythos: {
+    1: [1.0, 0.85, 0.42],
+    2: [0.95, 0.42, 0.18],
+    3: [0.46, 0.34, 0.2],
+    0: [0.6, 0.38, 0.72],
+  },
 };
 
 const UI_SYNC_MS = 250;
 const CLICK_DRAG_THRESHOLD_PX = 5;
+const STYLE_KEY = 'upthere.chartStyle';
+
+function storedStyle(): ChartStyle {
+  return localStorage.getItem(STYLE_KEY) === 'mythos' ? 'mythos' : 'modern';
+}
+
+/** Per-object colour buffer for a style, indexed by catalog position. */
+function paletteFor(cat: Catalog, style: ChartStyle): Float32Array {
+  const table = TYPE_COLORS[style];
+  const colors = new Float32Array(cat.sats.length * 3);
+  for (const s of cat.sats) colors.set(table[s.type] ?? table[0], s.index * 3);
+  return colors;
+}
 
 interface SimInfo {
   simMs: number;
@@ -66,6 +93,12 @@ export default function App() {
   const [shown, setShown] = useState(0);
   const [selected, setSelected] = useState<SatMeta | null>(null);
   const [live, setLive] = useState<LiveState | null>(null);
+  const [chartStyle, setChartStyle] = useState<ChartStyle>(storedStyle);
+  const [overlay, setOverlay] = useState<OverlayKind>('none');
+  // The catalog can arrive long after mount; the render loop reads the
+  // style through a ref so the first colour upload is never stale.
+  const styleRef = useRef(chartStyle);
+  styleRef.current = chartStyle;
   const [simInfo, setSimInfo] = useState<SimInfo>({
     simMs: Date.now(),
     speed: 1,
@@ -98,9 +131,7 @@ export default function App() {
         catalogRef.current = cat;
         setCatalog(cat);
 
-        const colors = new Float32Array(cat.sats.length * 3);
-        for (const s of cat.sats) colors.set(TYPE_COLORS[s.type] ?? TYPE_COLORS[0], s.index * 3);
-        scene.initPoints(cat.sats.length, colors);
+        scene.initPoints(cat.sats.length, paletteFor(cat, styleRef.current));
 
         visMaskRef.current = computeVisibility(cat, DEFAULT_FILTERS);
         setShown(cat.sats.length);
@@ -204,6 +235,17 @@ export default function App() {
     setShown(n);
   }, [filters, catalog]);
 
+  useEffect(() => {
+    localStorage.setItem(STYLE_KEY, chartStyle);
+    sceneRef.current?.setChartStyle(chartStyle);
+    const cat = catalogRef.current;
+    if (cat) sceneRef.current?.setPointColors(paletteFor(cat, chartStyle));
+  }, [chartStyle, catalog]);
+
+  useEffect(() => {
+    sceneRef.current?.setOverlay(overlay);
+  }, [overlay]);
+
   function selectSat(meta: SatMeta) {
     const cat = catalogRef.current;
     if (!cat) return;
@@ -237,7 +279,7 @@ export default function App() {
   const clock = clockRef.current;
 
   return (
-    <div className="app">
+    <div className={`app${chartStyle === 'mythos' ? ' theme-mythos' : ''}`}>
       <canvas ref={canvasRef} className="globe-canvas" />
 
       <div className="top-bar">
@@ -258,6 +300,13 @@ export default function App() {
           onChange={setFilters}
         />
       )}
+
+      <ChartPanel
+        style={chartStyle}
+        overlay={overlay}
+        onStyle={setChartStyle}
+        onOverlay={setOverlay}
+      />
 
       {selected && <DetailPanel sat={selected} live={live} onClose={clearSelection} />}
 

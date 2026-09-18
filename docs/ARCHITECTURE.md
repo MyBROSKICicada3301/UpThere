@@ -112,6 +112,91 @@ on the main thread, so frame cost is independent of catalog size.
   sRGB drawing buffer, so the fragment shader encodes its linear result with
   `pow(col, 1/2.2)`.
 
+## Chart styles and overlays (`src/engine/mythos/`)
+
+The globe has two skins and two optional data overlays, chosen from the
+chart panel. Neither touches the propagation pipeline: the satellite
+buffers, worker scheduling and picking are identical in both styles.
+
+### Styles
+
+`GlobeScene.setChartStyle('modern' | 'mythos')` switches a `uMode` uniform
+in the single Earth `ShaderMaterial`, so no program is recompiled and no
+per-object buffer is re-uploaded. **Modern** is the photographic day/night
+pair. **Mythos** samples a pen-and-ink chart drawn at runtime, and warms the
+rim light, stars, orbit lines and UI palette to match.
+
+The chart sheet (`mythos/parchment.ts`) is a 4096×2048 canvas built once,
+lazily, on the first switch (~0.7 s) and cached for the session. Nothing is
+downloaded: it derives from the two textures the app already ships.
+
+```
+earth_specular_2048.jpg ──► land mask ──► despeckle ──► signed distance field
+   (a clean water mask:                                         │
+    no clouds, no sea ice)          ┌───────────────────────────┼──────────────┐
+                                    ▼                           ▼              ▼
+earth_atmos_2048.jpg ─────►  tone wash + hand-tint      marching squares   glyph siting
+                                                      0  → coastline      (inland only,
+                                                     <0  → engraved        density from
+                                                           sea shading     local relief)
+```
+
+The distance field earns its cost three times over: contoured at level 0 it
+gives a coastline, contoured just below 0 it gives the parallel bands that
+hug every shore on a period chart, and tested directly it keeps hill
+hachures out of the water. Contour segments are never chained — adjacent
+cells interpolate a shared edge identically, so a round-capped stroke over
+the loose segments draws as one line, and a position-hashed jitter gives it
+a quill waver without pulling shared endpoints apart.
+
+Ink figures (compass roses, galleons, sea serpents, cherubs, whirlpools)
+are canvas paths in `mythos/ink.ts` and `mythos/figures.ts`. Anything drawn
+into the equirectangular sheet is squashed horizontally by `cos(lat)` first,
+which cancels the projection's stretch so it keeps its proportions on the
+sphere.
+
+Satellite dots face one real contrast problem in mythos: a warm dot that
+reads against black space vanishes against parchment. The point vertex
+shader measures the perpendicular distance from the globe's centre to the
+camera ray and darkens each dot to ink where it falls inside the Earth's
+disc, leaving its bright form out in the void.
+
+### Overlays
+
+`GlobeScene.setOverlay('none' | 'winds' | 'currents')` toggles one `Overlay`
+(`mythos/overlays.ts`), parented to `earthGroup` so it rides the GMST
+rotation. Instances are built on demand and kept, keyed by kind **and**
+style, since the two palettes differ.
+
+- **Winds** — the three-cell circulation (polar easterlies, mid-latitude
+  westerlies with a Rossby meander, trade-wind arcs slanting toward the
+  equator) under the eight Anemoi. Each cherub's breath is a separate sprite
+  rotated to the screen-space bearing of the wind beneath it, so the
+  decoration and the data agree; the face stays upright and is never
+  inverted.
+- **Currents** — the five subtropical gyres, their western boundary
+  currents and the Antarctic Circumpolar, with a turning whirlpool at each
+  gyre centre.
+
+Paths are fitted with a Catmull-Rom spline through ECEF unit vectors and
+re-projected to the sphere, so antimeridian crossings need no longitude
+unwrapping. Each becomes one triangle ribbon carrying an arc-length
+attribute in dash periods; the fragment shader renders a faint continuous
+line with a pulse travelling along it, so the whole layer is one draw call
+and one uniform write per frame. Closed loops rescale their arc length to a
+whole number of periods so the pulse train has no seam.
+
+Ribbons, arrowheads and figures are all sized in screen space (ribbons by
+multiplying the view-space depth in the vertex shader, figures via
+`sizeAttenuation: false`); a width fixed in kilometres would be a hairline
+at full-globe zoom and a stripe from low orbit. Figures also fade out near
+the limb by `normal · toCamera`, which stops a billboard anchored near the
+edge from hanging half off the globe into space.
+
+Overlays animate on wall-clock time, not simulated time: a gyre whipping
+round at 1000× would read as noise, and running time backwards should not
+suck the sea back up the Gulf Stream.
+
 ## Desktop packaging (`electron/main.cjs`)
 
 The Electron main process serves the built `dist/` bundle through a custom
@@ -129,8 +214,14 @@ behave exactly as on an HTTP origin. It contains no application logic.
 | `src/engine/SimClock.ts` | Simulation time |
 | `src/engine/PropagationEngine.ts` | Worker pool, scheduling, CPU state mirrors |
 | `src/workers/propagator.worker.ts` | SGP4 for one catalog slice |
-| `src/engine/GlobeScene.ts` | Three.js scene, shaders, picking |
+| `src/engine/GlobeScene.ts` | Three.js scene, shaders, picking, chart style, overlay switching |
 | `src/engine/selection.ts` | Selected-object live state and orbit geometry |
+| `src/engine/mythos/geo.ts` | Lat/lon → ECEF, spherical path sampling, arc length |
+| `src/engine/mythos/ink.ts` | Pen-and-ink primitives: parchment, hachures, lettering |
+| `src/engine/mythos/figures.ts` | Compass roses, galleons, sea serpents, cherubs, whirlpools |
+| `src/engine/mythos/parchment.ts` | Builds the antique chart sheet from the shipped textures |
+| `src/engine/mythos/flow.ts` | Animated flow ribbons and arrowheads |
+| `src/engine/mythos/overlays.ts` | Wind and current data, figure placement, per-frame aiming |
 | `src/App.tsx` | Render loop ownership, UI state wiring |
-| `src/components/` | React UI (search, filters, time controls, detail, key setup) |
+| `src/components/` | React UI (search, filters, chart, time controls, detail, key setup) |
 | `electron/main.cjs` | Desktop shell |

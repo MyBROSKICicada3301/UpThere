@@ -1,3 +1,11 @@
+/*
+ * Two skins, one stylesheet. Every panel colour, and the UI font, comes
+ * from a custom property defined on `.app`; `.app.theme-mythos` redefines
+ * the same set so switching the globe to the pen-and-ink chart carries the
+ * surrounding interface with it. No component needs to know which skin is
+ * active.
+ */
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -16,8 +24,55 @@ body,
 }
 
 .app {
+  --font: 'Segoe UI', system-ui, sans-serif;
+  --panel-bg: rgba(12, 16, 28, 0.82);
+  --panel-border: rgba(120, 140, 190, 0.25);
+  --rule: rgba(120, 140, 190, 0.12);
+  --ink: #e6e8ee;
+  --muted: #8fa0c0;
+  --faint: #667;
+  /* text set straight on the canvas, with space behind it */
+  --float-ink: #e6e8ee;
+  --float-muted: #8fa0c0;
+  --accent: #4fc3f7;
+  --accent-bg: #2b6cb0;
+  --btn-bg: rgba(40, 50, 80, 0.8);
+  --btn-hover: rgba(70, 90, 140, 0.8);
+  --input-bg: rgba(20, 26, 42, 0.9);
+  --hover: rgba(79, 195, 247, 0.15);
+  --shadow: none;
+  --t1: #4fdcff;
+  --t2: #ffb84d;
+  --t3: #9ea0a8;
+  --t0: #cf94eb;
+
   position: relative;
   height: 100%;
+  font-family: var(--font);
+  color: var(--ink);
+}
+
+.app.theme-mythos {
+  --font: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --panel-bg: rgba(238, 221, 184, 0.92);
+  --panel-border: rgba(120, 88, 48, 0.5);
+  --rule: rgba(120, 88, 48, 0.22);
+  --ink: #3f2a12;
+  --muted: #7d5c33;
+  --faint: #9a7c50;
+  --float-ink: #f0dcae;
+  --float-muted: #c7a675;
+  --accent: #9c3c18;
+  --accent-bg: #8c3a1a;
+  --btn-bg: rgba(213, 189, 145, 0.7);
+  --btn-hover: rgba(228, 208, 169, 0.92);
+  --input-bg: rgba(248, 238, 213, 0.92);
+  --hover: rgba(156, 60, 24, 0.14);
+  --shadow: 0 2px 14px rgba(40, 24, 8, 0.35);
+  --t1: #a8641a;
+  --t2: #9c3c18;
+  --t3: #7a6446;
+  --t0: #6d4a86;
 }
 
 .globe-canvas {
@@ -29,10 +84,11 @@ body,
 }
 
 .panel {
-  background: rgba(12, 16, 28, 0.82);
-  border: 1px solid rgba(120, 140, 190, 0.25);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
 }
 
 /* ---- top bar ---- */
@@ -58,17 +114,29 @@ body,
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.5px;
+  color: var(--float-ink);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+.theme-mythos .brand-name {
+  letter-spacing: 2.5px;
+  font-variant: small-caps;
 }
 .brand-sub {
   font-size: 11px;
-  color: #8fa0c0;
+  color: var(--float-muted);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.7);
+}
+.theme-mythos .brand-sub {
+  font-style: italic;
+  letter-spacing: 0.5px;
 }
 .fps {
   margin-left: auto;
   padding: 8px 10px;
   font-size: 12px;
-  color: #8fa0c0;
+  color: var(--float-muted);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.7);
 }
 
 /* ---- search ---- */
@@ -80,14 +148,15 @@ body,
   width: 100%;
   padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 140, 190, 0.35);
-  background: rgba(12, 16, 28, 0.85);
-  color: #e6e8ee;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--ink);
+  font-family: var(--font);
   outline: none;
   font-size: 14px;
 }
 .search-bar input:focus {
-  border-color: #4fc3f7;
+  border-color: var(--accent);
 }
 .search-results {
   position: absolute;
@@ -105,10 +174,10 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid rgba(120, 140, 190, 0.12);
+  border-bottom: 1px solid var(--rule);
 }
 .search-results li:hover {
-  background: rgba(79, 195, 247, 0.15);
+  background: var(--hover);
 }
 .result-name {
   font-weight: 600;
@@ -116,7 +185,7 @@ body,
 .result-meta {
   margin-left: auto;
   font-size: 11px;
-  color: #8fa0c0;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -129,10 +198,10 @@ body,
   margin-right: 6px;
   flex: none;
 }
-.type-dot.t1 { background: #4fdcff; }
-.type-dot.t2 { background: #ffb84d; }
-.type-dot.t3 { background: #9ea0a8; }
-.type-dot.t0 { background: #cf94eb; }
+.type-dot.t1 { background: var(--t1); }
+.type-dot.t2 { background: var(--t2); }
+.type-dot.t3 { background: var(--t3); }
+.type-dot.t0 { background: var(--t0); }
 
 /* ---- filter panel ---- */
 .filter-panel {
@@ -141,12 +210,12 @@ body,
   top: 84px;
   width: 200px;
   padding: 12px 14px;
-  max-height: calc(100% - 200px);
+  max-height: calc(100% - 310px);
   overflow-y: auto;
 }
 .filter-count {
   font-size: 12px;
-  color: #8fa0c0;
+  color: var(--muted);
   margin-bottom: 10px;
   font-variant-numeric: tabular-nums;
 }
@@ -157,7 +226,7 @@ body,
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #8fa0c0;
+  color: var(--muted);
   margin-bottom: 6px;
 }
 .filter-section label {
@@ -168,19 +237,67 @@ body,
   cursor: pointer;
   user-select: none;
 }
+.filter-section input[type='checkbox'] {
+  accent-color: var(--accent);
+}
 .filter-section select,
 .alt-inputs input {
   width: 100%;
   padding: 5px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(120, 140, 190, 0.35);
-  background: rgba(20, 26, 42, 0.9);
-  color: #e6e8ee;
+  border: 1px solid var(--panel-border);
+  background: var(--input-bg);
+  color: var(--ink);
+  font-family: var(--font);
 }
 .alt-inputs {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* ---- chart panel ---- */
+.chart-panel {
+  position: absolute;
+  left: 12px;
+  bottom: 16px;
+  width: 200px;
+  padding: 12px 14px;
+}
+.chart-panel .filter-title {
+  margin-bottom: 5px;
+}
+.chart-panel .filter-title + .tab-row {
+  margin-bottom: 11px;
+}
+.tab-row {
+  display: flex;
+  gap: 4px;
+}
+.tab-row button {
+  flex: 1;
+  padding: 5px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--btn-bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tab-row button:hover {
+  background: var(--btn-hover);
+}
+.tab-row button.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: #fff;
+}
+.chart-caption {
+  margin-top: 9px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* ---- detail panel ---- */
@@ -205,7 +322,7 @@ body,
 }
 .detail-sub {
   font-size: 11px;
-  color: #8fa0c0;
+  color: var(--muted);
   margin: 4px 0 10px;
 }
 .detail-section {
@@ -218,22 +335,22 @@ body,
   font-variant-numeric: tabular-nums;
 }
 .detail-label {
-  color: #8fa0c0;
+  color: var(--muted);
 }
 .detail-hint {
   font-size: 11px;
-  color: #667;
+  color: var(--faint);
 }
 .close-btn {
   background: none;
   border: none;
-  color: #8fa0c0;
+  color: var(--muted);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 4px;
 }
 .close-btn:hover {
-  color: #fff;
+  color: var(--ink);
 }
 
 /* ---- time controls ---- */
@@ -260,7 +377,7 @@ body,
 }
 .time-offset {
   font-size: 11px;
-  color: #ffb84d;
+  color: var(--accent);
 }
 .time-buttons,
 .speed-buttons {
@@ -268,9 +385,10 @@ body,
   gap: 4px;
 }
 .time-controls button {
-  background: rgba(40, 50, 80, 0.8);
-  border: 1px solid rgba(120, 140, 190, 0.3);
-  color: #cfd6e6;
+  background: var(--btn-bg);
+  border: 1px solid var(--panel-border);
+  color: var(--ink);
+  font-family: var(--font);
   border-radius: 6px;
   padding: 4px 10px;
   cursor: pointer;
@@ -278,11 +396,11 @@ body,
   font-variant-numeric: tabular-nums;
 }
 .time-controls button:hover {
-  background: rgba(70, 90, 140, 0.8);
+  background: var(--btn-hover);
 }
 .time-controls button.active {
-  background: #2b6cb0;
-  border-color: #4fc3f7;
+  background: var(--accent-bg);
+  border-color: var(--accent);
   color: #fff;
 }
 .play-btn {
@@ -308,8 +426,8 @@ body,
 .spinner {
   width: 18px;
   height: 18px;
-  border: 3px solid rgba(120, 140, 190, 0.3);
-  border-top-color: #4fc3f7;
+  border: 3px solid var(--panel-border);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
 }
@@ -334,12 +452,12 @@ body,
 }
 .key-box p {
   font-size: 13px;
-  color: #b6c0d4;
+  color: var(--muted);
   line-height: 1.5;
   margin-bottom: 14px;
 }
 .key-box a {
-  color: #4fc3f7;
+  color: var(--accent);
 }
 .key-row {
   display: flex;
@@ -349,17 +467,19 @@ body,
   flex: 1;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(120, 140, 190, 0.35);
-  background: rgba(20, 26, 42, 0.9);
-  color: #e6e8ee;
+  border: 1px solid var(--panel-border);
+  background: var(--input-bg);
+  color: var(--ink);
+  font-family: var(--font);
   outline: none;
 }
 .key-row button {
   padding: 8px 18px;
   border-radius: 8px;
-  border: 1px solid #4fc3f7;
-  background: #2b6cb0;
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
   color: #fff;
+  font-family: var(--font);
   cursor: pointer;
 }
 .key-row button:disabled {
