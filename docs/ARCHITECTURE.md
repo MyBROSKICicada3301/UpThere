@@ -170,10 +170,12 @@ style, since the two palettes differ.
 
 - **Winds** — the three-cell circulation (polar easterlies, mid-latitude
   westerlies with a Rossby meander, trade-wind arcs slanting toward the
-  equator) under the eight Anemoi. Each cherub's breath is a separate sprite
-  rotated to the screen-space bearing of the wind beneath it, so the
-  decoration and the data agree; the face stays upright and is never
-  inverted.
+  equator). On the mythos chart the eight Anemoi ride above the belts: each
+  cherub's breath is a separate sprite rotated to the screen-space bearing of
+  the wind beneath it, so the decoration and the data agree, while the face
+  stays upright and is never inverted. The cherubs are gated to that style —
+  over the photographic globe the belts are drawn plain, and the ribbons and
+  captions carry the data in both.
 - **Currents** — the five subtropical gyres, their western boundary
   currents and the Antarctic Circumpolar, with a turning whirlpool at each
   gyre centre.
@@ -223,5 +225,5 @@ behave exactly as on an HTTP origin. It contains no application logic.
 | `src/engine/mythos/flow.ts` | Animated flow ribbons and arrowheads |
 | `src/engine/mythos/overlays.ts` | Wind and current data, figure placement, per-frame aiming |
 | `src/App.tsx` | Render loop ownership, UI state wiring |
-| `src/components/` | React UI (search, filters, chart, time controls, detail, key setup) |
+| `src/components/` | React UI (search, filters, chart, time controls, detail, author, key setup) |
 | `electron/main.cjs` | Desktop shell |

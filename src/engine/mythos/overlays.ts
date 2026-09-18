@@ -8,10 +8,11 @@
  * equator), and the current layer draws the five subtropical gyres, the
  * western boundary currents that feed them, and the Antarctic Circumpolar.
  *
- * The cherubs are the mythological half of the wind tab. Each sits above a
- * belt with its breath swung round to the true bearing of the wind beneath
- * it, so the decoration and the data agree: a putto over the Southern Ocean
- * really is blowing east.
+ * The cherubs are the mythological half of the wind tab, and appear only on
+ * the mythos chart — over the photographic globe the belts speak for
+ * themselves. Each sits above a belt with its breath swung round to the true
+ * bearing of the wind beneath it, so the decoration and the data agree: a
+ * putto over the Southern Ocean really is blowing east.
  */
 
 import * as THREE from 'three';
@@ -23,17 +24,20 @@ import { newCanvas } from './ink';
 const EARTH_R = 6371;
 const DEG = Math.PI / 180;
 
+/** Parchment fill for the cherubs, who only ever appear on the chart. */
+const CHERUB_SKIN = 'rgba(241,227,194,0.94)';
+
 export type ChartStyle = 'modern' | 'mythos';
 
 /** Ribbon and figure colours, per chart style. */
 const PALETTE = {
   modern: {
-    wind: { color: 0x5f93c4, head: 0xa8e0ff, figure: '#cfe8ff', skin: 'rgba(16,26,46,0.78)', plate: 'rgba(10,16,30,0.68)', text: '#dbeaff' },
-    sea: { color: 0x2f8f8a, head: 0x6ff0dc, figure: '#9ff0e4', skin: 'rgba(10,30,34,0.78)', plate: 'rgba(10,16,30,0.68)', text: '#c8fff4' },
+    wind: { color: 0x5f93c4, head: 0xa8e0ff, figure: '#cfe8ff', plate: 'rgba(10,16,30,0.68)', text: '#dbeaff' },
+    sea: { color: 0x2f8f8a, head: 0x6ff0dc, figure: '#9ff0e4', plate: 'rgba(10,16,30,0.68)', text: '#c8fff4' },
   },
   mythos: {
-    wind: { color: 0x8f3c1c, head: 0xd9702f, figure: '#7e3316', skin: 'rgba(241,227,194,0.94)', plate: 'rgba(240,222,182,0.82)', text: '#5b3212' },
-    sea: { color: 0x155e63, head: 0x39a7a2, figure: '#124d52', skin: 'rgba(241,227,194,0.94)', plate: 'rgba(240,222,182,0.82)', text: '#12454a' },
+    wind: { color: 0x8f3c1c, head: 0xd9702f, figure: '#7e3316', plate: 'rgba(240,222,182,0.82)', text: '#5b3212' },
+    sea: { color: 0x155e63, head: 0x39a7a2, figure: '#124d52', plate: 'rgba(240,222,182,0.82)', text: '#12454a' },
   },
 } as const;
 
@@ -313,8 +317,12 @@ export class Overlay {
         place(b, llVec(lat, lon).multiplyScalar(EARTH_R * 1.02), 0.1, ON_SURFACE, 0.85);
         this.spinners.push({ sprite: b.sprite, rate: (cw ? -1 : 1) * 0.28 });
       }
-    } else {
-      const head = cherubTexture(256, pal.figure, pal.skin);
+    } else if (style === 'mythos') {
+      // The Anemoi belong to the chart, not to the photograph: over the
+      // satellite globe the belts speak for themselves and putti would only
+      // read as clip art. The ribbons and their captions carry the data in
+      // both styles.
+      const head = cherubTexture(256, pal.figure, CHERUB_SKIN);
       const breath = breathTexture(256, pal.figure);
       for (const a of ANEMOI) {
         const anchor = llVec(a.lat, a.lon).multiplyScalar(EARTH_R * 1.22);

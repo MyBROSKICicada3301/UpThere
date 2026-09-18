@@ -31,6 +31,7 @@ import { SearchBar } from './components/SearchBar';
 import { FilterPanel } from './components/FilterPanel';
 import { DetailPanel } from './components/DetailPanel';
 import { ChartPanel } from './components/ChartPanel';
+import { Credits } from './components/Credits';
 import { ApiKeySetup } from './components/ApiKeySetup';
 
 /**
@@ -307,6 +308,8 @@ export default function App() {
         onStyle={setChartStyle}
         onOverlay={setOverlay}
       />
+
+      <Credits style={chartStyle} />
 
       {selected && <DetailPanel sat={selected} live={live} onClose={clearSelection} />}
 

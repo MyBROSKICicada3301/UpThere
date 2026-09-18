@@ -7,7 +7,41 @@ orbit (~36,000 satellites, rocket bodies, and debris fragments) rendered on
 an interactive globe with positions propagated live in your browser or as a
 desktop app.
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-MyBROSKICicada3301-181717?logo=github&logoColor=white)](https://github.com/MyBROSKICicada3301)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Shishir%20S%20Nambiar-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/shishir-s-nambiar/)
+
+## Two ways to see the sky
+
+The same live catalogue, over your choice of globe. Switch from the **Chart**
+panel; the choice is remembered.
+
+**Modern** — the photographic day/night globe, with the terminator following
+the real sun.
+
+**Mythos** — a pen-and-ink world chart in the style of a Renaissance atlas:
+quill-wobbled coastlines, engraved shading banding out from every shore, hill
+hachures raised over the real uplands, a 16-point compass rose, galleons under
+sail, sea serpents, and *hic svnt dracones* lettered across the Indian Ocean.
+The whole interface follows the globe onto parchment. Nothing is downloaded to
+make it — the chart is drawn at runtime from the two textures the app already
+ships (see [How it works](#how-it-works)).
+
+Either globe takes one of two data overlays:
+
+- **Winds** — the three-cell circulation: polar easterlies, mid-latitude
+  westerlies meandering as Rossby waves, and trade-wind arcs slanting toward
+  the equator. On the Mythos chart the eight **Anemoi** ride above the belts,
+  each cherub's breath swung round to the true bearing of the wind beneath it,
+  so the decoration and the data agree. Over the photographic globe the belts
+  are drawn plain.
+- **Seas** — the five subtropical gyres, the western boundary currents that
+  feed them (Gulf Stream, Kuroshio, Agulhas, Humboldt) and the Antarctic
+  Circumpolar, with a turning whirlpool at every gyre centre.
+
+Both animate: a pulse travels along each ribbon in the direction of flow, on
+wall-clock time rather than simulation time — a gyre whipping round at 1000×
+would read as noise.
 
 ## Features
 
@@ -22,15 +56,8 @@ desktop app.
   and altitude band.
 - **Object details.** Click any dot or search-select: live latitude/
   longitude/altitude/speed, orbital elements, orbit line, and ground track.
-- **Two charts.** Keep the photographic globe, or switch to **Mythos**: a
-  pen-and-ink world chart — wobbling coastlines, engraved sea shading, hill
-  hachures, compass roses, galleons and sea serpents — drawn at runtime from
-  the same textures, with the whole interface following it onto parchment.
-- **Winds & seas.** Two optional overlays, in either chart style. *Winds*
-  draws the trade, westerly and polar belts under the eight Anemoi, each
-  cherub's breath aimed along the wind beneath it. *Seas* draws the five
-  great gyres, their boundary currents and the Antarctic Circumpolar, with
-  a turning whirlpool at every gyre centre.
+- **Two chart styles and two overlays**, as above — none of which touches the
+  propagation pipeline.
 
 ## Demo
 
@@ -84,13 +111,25 @@ The short version:
 4. The world frame is ECI: satellites need no transform, and the Earth mesh
    itself rotates by GMST, which is what makes the sidereal rotation and
    ground tracks exact.
-5. The Mythos chart ships no extra assets. The specular texture doubles as a
-   clean land/water mask; a signed distance field over it yields the
-   coastline, the engraved offshore banding and the siting of every hill
-   mark, and the ships and monsters are canvas paths.
 
-The long version, including the threading model, coordinate conventions and
-scheduling policy: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+**The Mythos chart ships no extra assets.** The specular texture already in
+the repo turns out to be a clean land/water mask — no clouds or sea ice to
+misread — so a signed distance field is built over it once, on the first
+switch, and does three jobs at once: contoured at zero it gives the coastline,
+contoured just below zero it gives the parallel engraved banding that hugs
+every shore on a period chart, and tested directly it keeps hill hachures out
+of the water. Hachure density comes from local relief in the colour texture,
+normalised by luminance so the Sahara doesn't out-mountain the Alps. The roses,
+ships, monsters and cherubs are canvas paths.
+
+Both overlays are one triangle ribbon per path carrying arc length in dash
+periods, so a whole layer is one draw call and one uniform write per frame.
+Ribbons and figures are sized in screen space — a width fixed in kilometres is
+a hairline at full-globe zoom and a stripe from low orbit.
+
+The long version, including the threading model, coordinate conventions,
+scheduling policy and the full chart pipeline:
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## API key & deployment note
 
@@ -99,6 +138,13 @@ acceptable for local development and personal desktop builds, but **do not
 publish a hosted build with your key baked in**: proxy the KeepTrack API
 through a small backend that attaches the key server-side, or leave the
 variable unset so each user supplies their own key at first launch.
+
+## Author
+
+**Shishir S Nambiar**
+
+- GitHub — [@MyBROSKICicada3301](https://github.com/MyBROSKICicada3301)
+- LinkedIn — [shishir-s-nambiar](https://www.linkedin.com/in/shishir-s-nambiar/)
 
 ## Contributing
 

@@ -300,6 +300,51 @@ body,
   color: var(--muted);
 }
 
+/* ---- author block ---- */
+.credits {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  line-height: 1;
+}
+.credits-verb {
+  color: var(--muted);
+}
+.credits-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+.theme-mythos .credits-verb,
+.theme-mythos .credits-name {
+  font-style: italic;
+}
+.theme-mythos .credits-name {
+  letter-spacing: 0.4px;
+}
+.credits-link {
+  display: flex;
+  color: var(--muted);
+  padding: 1px;
+  border-radius: 4px;
+}
+.credits-link:first-of-type {
+  margin-left: 2px;
+  padding-left: 9px;
+  border-left: 1px solid var(--rule);
+}
+.credits-link:hover {
+  color: var(--accent);
+}
+.credits-link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---- detail panel ---- */
 .detail-panel {
   position: absolute;

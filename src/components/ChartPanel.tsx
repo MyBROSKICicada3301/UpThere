@@ -13,14 +13,26 @@ const STYLES: [ChartStyle, string, string][] = [
   ['mythos', 'Mythos', 'Hand-drawn chart of the old world'],
 ];
 
-const OVERLAYS: [OverlayKind, string, string][] = [
-  ['none', 'None', ''],
-  ['winds', 'Winds', 'The eight Anemoi over the trade, westerly and polar belts.'],
-  ['currents', 'Seas', 'The five great gyres and the Antarctic Circumpolar.'],
+const OVERLAYS: [OverlayKind, string][] = [
+  ['none', 'None'],
+  ['winds', 'Winds'],
+  ['currents', 'Seas'],
 ];
 
+/** The Anemoi ride along only on the chart, so the caption says so there. */
+const CAPTIONS: Record<ChartStyle, Partial<Record<OverlayKind, string>>> = {
+  modern: {
+    winds: 'Trade, westerly and polar wind belts.',
+    currents: 'The five great gyres and the Antarctic Circumpolar.',
+  },
+  mythos: {
+    winds: 'The eight Anemoi over the trade, westerly and polar belts.',
+    currents: 'The five great gyres and the Antarctic Circumpolar.',
+  },
+};
+
 export function ChartPanel({ style, overlay, onStyle, onOverlay }: Props) {
-  const caption = OVERLAYS.find((o) => o[0] === overlay)?.[2];
+  const caption = CAPTIONS[style][overlay];
 
   return (
     <div className="chart-panel panel">
